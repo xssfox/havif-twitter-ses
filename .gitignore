@@ -1,0 +1,5 @@
+havif/samples
+*.zip
+lib
+.DS_Store
+.vscode
