@@ -25,6 +25,12 @@ parser.add_argument('--min', dest='min',
 parser.add_argument('--max', dest='max',
                     default=63,
                     help='max avif quantization')
+parser.add_argument('-x', dest='x',
+                    default=240,
+                    help='max x size of image')
+parser.add_argument('--size', dest='size',
+                    default=2600,
+                    help='max file size for auto mode')
 
 args = parser.parse_args()
 
@@ -42,18 +48,18 @@ with tempfile.TemporaryDirectory() as tmp:
     logging.info(f"Temp resized image path: {resized_path}")
 
     logging.info(f"Converting : {args.image}")
-    convert_output = convert(args.image, "-strip", "-resize", f"240x180!", resized_path)
+    convert_output = convert(args.image, "-strip", "-resize", f"{args.x}x", resized_path)
     logging.info(f"Convert output:\n{convert_output}")
     logging.info(f"Converted image")
 
     logging.info(f"Converting to avif")
     if args.auto == False:
-        avif_output = avifenc("-d", "8", "-y","400","--min",args.min,"--max",args.max,"-","tune=ssim","--speed","7",resized_path, avif_path)
+        avif_output = avifenc("-d", "8", "-y","420","--min",args.min,"--max",args.max,resized_path, avif_path)
     else:
         for q in range(0, 63):
             avif_output = avifenc("-d", "8", "-y","420","--min",q,"--max",args.max,resized_path, avif_path)
             logging.info(f"Headed AVIF filesize: {os.path.getsize(avif_path)}")
-            if os.path.getsize(avif_path) < 2400:
+            if os.path.getsize(avif_path) < int(args.size):
                 break
     logging.info(f"avif output: \n{avif_output}")
 
@@ -61,9 +67,15 @@ with tempfile.TemporaryDirectory() as tmp:
 
     # strip header
     with open(avif_path, "rb") as avif_file:
+        avif_file.seek(198)
+        x = avif_file.read(2)
+        avif_file.seek(202)
+        y = avif_file.read(2)
         avif_file.seek(HEADER_BYTES)
         data = avif_file.read()
         with open(avif_l_path, "wb") as havif_file:
+            havif_file.write(x)
+            havif_file.write(y)
             havif_file.write(data)
 
     # get header
@@ -73,6 +85,8 @@ with tempfile.TemporaryDirectory() as tmp:
     # put the header back on to make sure it still works
     with open(avif_l_path, "rb") as havif_file:
         data = header
+        x = havif_file.read(2)
+        y = havif_file.read(2)
         payload = havif_file.read()
         length = len(payload)
         logging.info(f"payload section is {length} bytes long")
@@ -84,6 +98,11 @@ with tempfile.TemporaryDirectory() as tmp:
             sample_avif_file.write((length+2).to_bytes(4, byteorder='big'))
             sample_avif_file.seek(274)
             sample_avif_file.write((length+8+2).to_bytes(4, byteorder='big')) # not sure why plus 2?
+            sample_avif_file.seek(198)
+            sample_avif_file.write(x)
+            sample_avif_file.seek(202)
+            sample_avif_file.write(y)
+
             logging.info(f"patched")
 
 

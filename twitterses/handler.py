@@ -28,7 +28,7 @@ def handler(event,context):
         mail = s3.Object(ses_meta_data['receipt']['action']['bucketName'], ses_meta_data['receipt']['action']['objectKey'])
         mail = mail.get()['Body'].read()
         msg = email.message_from_bytes(mail, _class=EmailMessage, policy=email.policy.default)
-        if os.environ('FROM_EMAIL') in msg['from'].lower() :
+        if os.environ['FROM_EMAIL'] in msg['from'].lower() :
             tweet_message = msg['subject']
             print(f"set tweet message to : {tweet_message}")
             image_ids = []
@@ -40,8 +40,10 @@ def handler(event,context):
                     with open("header.bytes", "rb") as header_file:
                         header = header_file.read()
                     # put the header back on to make sure it still works
+                    x = image[0:2]
+                    y = image[2:4]
                     data = header
-                    payload = image
+                    payload = image[4:]
                     length = len(payload)
                     data += payload
                     tf.write(data)
@@ -51,6 +53,10 @@ def handler(event,context):
                     tf.write((length+2).to_bytes(4, byteorder='big'))
                     tf.seek(274)
                     tf.write((length+8+2).to_bytes(4, byteorder='big')) # not sure why plus 2?
+                    tf.seek(198)
+                    tf.write(x)
+                    tf.seek(202)
+                    tf.write(y)
                     tf.flush()
 
                     print(tf.name)
