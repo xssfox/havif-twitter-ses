@@ -1,6 +1,7 @@
 import sys
 sys.path.append("./lib")
-import tweepy
+from mastodon import Mastodon
+
 import boto3
 import tempfile
 import os
@@ -18,9 +19,12 @@ s3 = boto3.resource("s3")
 
 def handler(event,context):
     print(json.dumps(event))
-    auth = tweepy.OAuthHandler(os.environ['CLIENT_ID'],os.environ['CLIENT_SECRET'])
-    auth.set_access_token(os.environ["ACCESS_KEY"], os.environ["ACCESS_SECRET"])
-    api = tweepy.API(auth)
+    mastodon = Mastodon(
+        client_id = os.environ["M_CLIENT_ID"],
+        client_secret = os.environ["M_CLIENT_SECRET"],
+        api_base_url = os.environ["M_URL"],
+        access_token = os.environ["M_ACCESS_TOKEN"]
+    )
 
     for record in event["Records"]:
         ses_meta_data = json.loads(record["Sns"]["Message"])
@@ -61,12 +65,12 @@ def handler(event,context):
 
                     print(tf.name)
                     os.system(f"/opt/avifdec {tf.name} /tmp/output.png")
-                    media = api.media_upload("/tmp/output.png")
-                    image_ids.append(media.media_id)
+                    media = mastodon.media_post("/tmp/output.png", "image/png", description="Image uploaded via HF winlink")
+                    image_ids = [media["id"]]
                 print("image uploaded")
                 print(image_ids)
                         
-            api.update_status(tweet_message,media_ids=image_ids)
+            mastodon.status_post(tweet_message,media_ids=image_ids)
 
 if __name__ == "__main__":
     handler({
